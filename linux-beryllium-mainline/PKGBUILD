@@ -6,7 +6,7 @@ buildarch=8
 _kernel=linux-beryllium-mainline
 pkgbase=$_kernel
 pkgname=("${pkgbase}-headers" $pkgbase)
-pkgver=7.0.0rc3
+pkgver=7.0.0
 pkgrel=1
 arch=('aarch64')
 license=('GPL2')
@@ -18,16 +18,8 @@ options=('!strip' 'ccache')
 conflicts=('linux-rockchip-mainline' 'linux-rockchip-rk3588' 'linux-rockchip' 'linux-rockchip-rkr6' 'linux-rockchip-rkr3')
 source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=7.0.y"
         'linux.preset'
-        'config'
-        '0001-drm-bridge-detect_ctx-hook.patch'
-        '0002-drm-bridge-connector-detect_ctx.patch'
-        '0003-drm-dw-hdmi-qp-scdc-scrambling.patch'
-        '0004-drm-rockchip-hpd-event-optimization.patch')
+        'config')
 md5sums=('SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
          'SKIP'
          'SKIP')
 
@@ -40,13 +32,10 @@ prepare() {
   sed -i 's|EXTRAVERSION =|EXTRAVERSION = -beryllium|g' Makefile
   sed -i 's|echo "+"|#echo "+"|g' scripts/setlocalversion
 
-  # Apply out-of-tree patches (pending upstream)
-  # HDMI 2.0 SCDC scrambling (Ciocaltea v4) — 4K@60Hz support
-  patch -Np1 -i "$srcdir/0001-drm-bridge-detect_ctx-hook.patch" || true
-  patch -Np1 -i "$srcdir/0002-drm-bridge-connector-detect_ctx.patch" || true
-  patch -Np1 -i "$srcdir/0003-drm-dw-hdmi-qp-scdc-scrambling.patch" || true
-  patch -Np1 -i "$srcdir/0004-drm-rockchip-hpd-event-optimization.patch" || true
-  # VP9 VDPU381 and GPU OPP voltage fix are in the kernel tree directly
+  # Tutte le patch sono integrate direttamente nel branch 7.0.y del kernel:
+  # - Base: Collabora rockchip-devel HEAD (DP audio, samsung-hdptx, fusb302/tcpm,
+  #   RCB+SRAM rkvdec, multi-board RK3588/RK3576/Sige5)
+  # - On top: Piotr Oniszczuk v9 VP9 VDPU381 + Jianfeng Liu vb2_is_busy fix
 
   cp ${srcdir}/config .config
 }
