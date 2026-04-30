@@ -1,40 +1,39 @@
 # AArch64 multi-platform
-# Maintainer: Panda <panda@bredos.org>
-# Maintainer: Bill Sideris <bill88t@bredos.org>
+# Maintainer: Bill Sideris <bill88t@feline.gr>
 
 buildarch=8
 _kernel=linux-rockchip-rkr3
 pkgbase=$_kernel
 pkgname=("${pkgbase}-headers" $pkgbase)
 pkgver=6.1.75
-pkgrel=32
+pkgrel=34
 epoch=3
 arch=('aarch64')
 license=('GPL2')
-url="https://github.com/BredOS/linux-bredos"
+url="https://github.com/beryllium-org/linux-beryllium"
 pkgdesc="The Linux Kernel and modules"
 optdepends=('mali-G610-firmware-rkr4: Mali G610 firmware for Rockchip RK3588(S)')
 makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'vboot-utils' 'dtc')
 options=('!strip' 'ccache')
 conflicts=('linux-rockchip-rk3588' 'linux-rockchip' 'linux-rockchip-rkr6' 'linux-rockchip-rkr1')
-source=(git+https://github.com/BredOS/linux-bredos.git#branch=rk6.1-rkr3
+source=(git+https://github.com/beryllium-org/linux-beryllium.git#branch=rk6.1-rkr3
         'linux.preset'
         'config'
         'dtb-update.hook'
-        'bredos-update-dtbs')
+        'beryllium-update-dtbs')
 sha256sums=('SKIP'
             'e1172898719b095861d7e8353977524741db5e9f4aa191ae7502a98d6cefbfa7'
             '00427755599e9aab41af1db6562d1cf2e279fa31857e52217013b7df7e8525af'
             '135748cdd326dd825227b1506759b8cdb33138f24b8c8b598849724bab376797'
             '97e46ab2f8e977aec001f23f96411056f448e96c7ce698f4a007c14ebaff9218')
 prepare() {
-  cd linux-bredos
+  cd linux-beryllium
 
   cp ${srcdir}/config .config
 }
 
 build() {
-  cd linux-bredos
+  cd linux-beryllium
 
   echo > .scmversion
   echo > localversion
@@ -53,12 +52,12 @@ build() {
 _package() {
   pkgdesc="The Linux Kernel and modules"
   depends=('coreutils' 'kmod')
-  optdepends=('wireless-regdb: to set the correct wireless channels of your country' 'mkinitcpio>=0.7: To use mkinitcpio for initramfs generation' 'bredos-dracut: To use Dracut for initramfs generation')
+  optdepends=('wireless-regdb: to set the correct wireless channels of your country' 'mkinitcpio>=0.7: To use mkinitcpio for initramfs generation' 'dracut: To use Dracut for initramfs generation')
   provides=("linux-rockchip-rkr3=${pkgver}" "linux")
   replaces=("linux-fydetab")
   backup=("etc/mkinitcpio.d/${_kernel}.preset")
 
-  cd linux-bredos
+  cd linux-beryllium
 
   local _version="$(<version)"
 
@@ -92,7 +91,7 @@ _package() {
   # install dtb update hook
   mkdir -p "${pkgdir}/usr/share/libalpm/hooks"
   install -Dm644 "${srcdir}/dtb-update.hook" "${pkgdir}/usr/share/libalpm/hooks/dtb-update.hook"
-  install -Dm755 "${srcdir}/bredos-update-dtbs" "${pkgdir}/usr/bin/bredos-update-dtbs"
+  install -Dm755 "${srcdir}/beryllium-update-dtbs" "${pkgdir}/usr/bin/beryllium-update-dtbs"
 }
 
 _package-headers() {
@@ -100,7 +99,7 @@ _package-headers() {
   provides=("linux-headers=${pkgver}" "linux-rockchip-rkr3-headers=${pkgver}")
   replaces=("linux-fydetab-headers")
 
-  cd linux-bredos
+  cd linux-beryllium
   local _version="$(<version)"
   local builddir="$pkgdir/usr/lib/modules/$_version/build"
 
