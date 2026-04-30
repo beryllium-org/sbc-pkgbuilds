@@ -14,13 +14,11 @@ options=('!strip')
 source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=${_srcname}"
         '0001-net-smsc95xx-Allow-mac-address-to-be-set-as-a-parame.patch'
         '0002-arm64-dts-rockchip-disable-pwm0-on-rk3399-firefly.patch'
-        '0003-drivers-gpu-drm-panthor-acpi.patch'
         'config'
         'linux.preset')
 md5sums=('SKIP'
          'd182953cf7a797517f50a5cfd3718cbd'
          'c9d4e392555b77034e24e9f87c5ff0b3'
-         'b96f83a095aeb2409a852199135c8798'
          'e264574a09c7af0a4f291cdee0954794'
          '33ba82001fca579d43172a6db25d6aca')
 
