@@ -1,27 +1,26 @@
 # AArch64 multi-platform
-# Maintainer: Panda <panda@bredos.org>
-# Maintainer: Bill Sideris <bill88t@bredos.org>
+# Maintainer: Bill Sideris <bill88t@feline.gr>
 
 buildarch=8
 _kernel=linux-h618
 pkgbase=$_kernel
 pkgname=("${pkgbase}-headers" $pkgbase)
 pkgver=6.1.31
-pkgrel=2
+pkgrel=3
 arch=('aarch64')
 license=('GPL2')
-url="https://github.com/BredOS/linux-bredos"
+url="https://github.com/beryllium-org/linux-beryllium"
 pkgdesc="The Linux Kernel and modules"
 makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'vboot-utils' 'dtc' 'cpio')
 options=('!strip' 'ccache')
-source=(git+https://github.com/BredOS/linux-bredos.git#branch=h618-6.1.y
+source=(git+https://github.com/beryllium-org/linux-beryllium.git#branch=h618-6.1.y
         'linux.preset'
         'config')
 md5sums=('SKIP'
          'baaa1a491525494a08c0ac59726ae7bd'
          'b565aa346b02225326124606051afe83')
 prepare() {
-  cd linux-bredos
+  cd linux-beryllium
 
   echo > .scmversion
   echo > localversion
@@ -33,7 +32,7 @@ prepare() {
 }
 
 build() {
-  cd linux-bredos
+  cd linux-beryllium
 
   # get kernel version
   make olddefconfig prepare
@@ -54,7 +53,7 @@ _package() {
   optdepends=('wireless-regdb: to set the correct wireless channels of your country')
   provides=("linux-rockchip-mainline=${pkgver}" "linux")
 
-  cd linux-bredos
+  cd linux-beryllium
 
   local _version="$(<version)"
 
@@ -90,7 +89,7 @@ _package-headers() {
   pkgdesc="The Linux Kernel and modules - Headers"
   provides=("linux-headers=${pkgver}" "linux-rockchip-mainline-headers=${pkgver}")
 
-  cd linux-bredos
+  cd linux-beryllium
   local _version="$(<version)"
   local builddir="$pkgdir/usr/lib/modules/$_version/build"
 
