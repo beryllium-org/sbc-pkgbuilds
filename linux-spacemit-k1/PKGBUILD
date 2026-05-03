@@ -1,6 +1,6 @@
 # Maintainer: Bill Sideris <bill88t@feline.gr>
 
-cross_compile=1
+cross_compile=0
 
 pkgbase=linux-spacemit-k1
 _srcname=7.1-rc1
@@ -14,7 +14,6 @@ arch=(riscv64)
 license=('GPL2')
 makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'dtc')
 options=('!strip')
-_srcname="linux-beryllium-${_branch}"
 source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=${_srcname}"
         'config'
         'linux.preset')
@@ -29,31 +28,18 @@ cross_compile_setup() {
 }
 
 prepare() {
-        cd $_srcname
-
-        # local src
-        # for src in $(ls ../linux-*.patch); do
-        #         echo "Applying patch $src..."
-        #         patch -Np1 < "../$src"
-        # done
-
-        # for src in $(ls ../patch-*.xz); do
-        #         echo "Applying patch $src..."
-        #         xzcat "../$src" | patch -Np1 -F3
-        # done
+        cd linux-beryllium
 
         echo "Setting version..."
         echo > .scmversion
         echo > localversion
 
         echo "Setting config..."
-        cp ../config .config
-
-
+        cat "${srcdir}/config" > ./.config
 }
 
 build() {
-  cd $_srcname
+  cd linux-beryllium
 
   echo > .scmversion
   echo > localversion
@@ -71,7 +57,7 @@ build() {
     make ${MAKEFLAGS} Image modules
     make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs
   fi
-  make -s kernelrelease > version
+  echo "7.1-rc1-spacemit-k1" > version
 
 }
 
@@ -82,7 +68,7 @@ _package() {
   provides=("linux-spacemit-k1=${pkgver}" "linux")
   backup=("etc/mkinitcpio.d/${_kernel}.preset")
 
-  cd $_srcname
+  cd linux-beryllium
 
   local _version="$(<version)"
 
@@ -117,7 +103,7 @@ _package-headers() {
   pkgdesc="The Linux Kernel and modules - Headers"
   provides=("linux-headers=${pkgver}" "linux-spacemit-k1-headers=${pkgver}")
 
-  cd $_srcname
+  cd linux-beryllium
   local _version="$(<version)"
   local builddir="$pkgdir/usr/lib/modules/$_version/build"
 
