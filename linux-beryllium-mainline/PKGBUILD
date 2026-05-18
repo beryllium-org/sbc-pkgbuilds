@@ -6,8 +6,8 @@ buildarch=8
 _kernel=linux-beryllium-mainline
 pkgbase=$_kernel
 pkgname=("${pkgbase}-headers" $pkgbase)
-pkgver=7.0.0
-pkgrel=1
+pkgver=7.1.0rc2
+pkgrel=2
 arch=('aarch64')
 license=('GPL2')
 url="https://github.com/beryllium-org/linux-beryllium"
@@ -16,7 +16,7 @@ optdepends=('mali-G610-firmware-rkr4: Mali G610 firmware for Rockchip RK3588(S)'
 makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'vboot-utils' 'dtc' 'cpio' 'dwarves')
 options=('!strip' 'ccache')
 conflicts=('linux-rockchip-mainline' 'linux-rockchip-rk3588' 'linux-rockchip' 'linux-rockchip-rkr6' 'linux-rockchip-rkr3')
-source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=7.0.y"
+source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=7.1-rc2"
         'linux.preset'
         'config')
 md5sums=('SKIP'
@@ -32,10 +32,23 @@ prepare() {
   sed -i 's|EXTRAVERSION =|EXTRAVERSION = -beryllium|g' Makefile
   sed -i 's|echo "+"|#echo "+"|g' scripts/setlocalversion
 
-  # Tutte le patch sono integrate direttamente nel branch 7.0.y del kernel:
-  # - Base: Collabora rockchip-devel HEAD (DP audio, samsung-hdptx, fusb302/tcpm,
-  #   RCB+SRAM rkvdec, multi-board RK3588/RK3576/Sige5)
-  # - On top: Piotr Oniszczuk v9 VP9 VDPU381 + Jianfeng Liu vb2_is_busy fix
+  # All patches are integrated directly in the 7.1-rc2 branch of the kernel:
+  # - Base: Linus v7.1-rc2 (2026-05-03)
+  # - Squash of collabora/rockchip-devel as of 2026-05-12 (panthor 1.8,
+  #   rkvdec HEVC VDPU381/VDPU383, fusb302/tcpm rework, dw-hdmi-qp /
+  #   samsung-hdptx FRL stack, drm/bridge detect_ctx)
+  # - VP9 chewitt cherry-picks: VDPU346 + VDPU381 variants, Profile2,
+  #   probs alignment, dvab-sarma fixes (6 commits)
+  # - AV1: Verisilicon IOMMU defconfig + sync_state workaround
+  # - HDMI flood fix (3 patches): pcm_drm_eld rate-limit, hdmi-codec
+  #   bail out on disconnected sink, soc-utils silence -ENOTCONN
+  # - dw-hdmi-qp N coefficient table for 497.75 MHz (2560x1440@120 Hz)
+  # - drm/rockchip dw_dp no-op sync_state callback
+  # - defconfig: CMA 160 MB + DW_DP toggle + Verisilicon IOMMU
+  # - VP9 VDPU381 PM runtime teardown fix (Jonas Karlman 2020 + our
+  #   Tested-by) — fixes inter-prediction green chroma U=V=0 on motion
+  #   blocks. Sent upstream LKML 2026-05-18:
+  #   https://lore.kernel.org/all/20260518145414.64514-1-pavone.lawyer@gmail.com/
 
   cp ${srcdir}/config .config
 }
@@ -70,7 +83,11 @@ _package() {
   make INSTALL_DTBS_PATH="${pkgdir}/boot/dtbs/" dtbs_install
 
   # install modules
-  make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 modules_install
+  # INSTALL_MOD_STRIP must keep .BTF section, otherwise nfnetlink fails BTF
+  # validation at module load and networking breaks (see kernel BTF docs).
+  make INSTALL_MOD_PATH="$pkgdir/usr" \
+       INSTALL_MOD_STRIP="--strip-debug --keep-section=.BTF" \
+       modules_install
 
   # copy kernel
   install -Dm644 arch/arm64/boot/Image "$pkgdir/usr/lib/modules/$_version/vmlinuz"
