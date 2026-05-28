@@ -1,0 +1,15 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = boot/vmlinuz-*
+Target = boot/Image.gz*
+Target = usr/lib/modules/*
+Target = boot/dtbs/*
+Target = usr/share/u-boot-menu/conf.d/*
+
+[Action]
+Description = Updating u-boot configuration..
+When = PostTransaction
+Exec = /usr/bin/u-boot-update

@@ -1,0 +1,24 @@
+# Maintainer: Bill Sideris <bill88t@feline.gr>
+
+pkgname=rpi3-boot
+pkgver=20$(date +%y%m%d)
+pkgrel=1
+pkgdesc="Raspberry Pi 3 bootloader and configuration"
+arch=('any')
+url="https://beryllium.gr"
+license=('GPL')
+conflicts=('rpi4-boot' 'rpi5-boot')
+
+source=('config.txt' 'u-boot.bin' '99-rpi-boot.hook' 'rpi3-boot-update')
+sha256sums=('7a3063c60edadc6805a29ecf50d285a6158f413592830fd9ecd434508b7797ea'
+            '95ca610cd68f19f0ecd616184ddeb1c325bd1b37ba50a156d790e58905e1ced7'
+            'e3787c1c30f6cc9f2e4107ce00d79155b20827d0185f5bd2cb32547d073b823c'
+            '972930339affcfe7e5b7cd70f268479354a2c2154ea5cecbb53f1fa018365a1d')
+
+package() {
+    install -Dm644 "${srcdir}/u-boot.bin" "${pkgdir}/etc/rpi-boot/u-boot.bin"
+    install -Dm644 "${srcdir}/config.txt" "${pkgdir}/etc/rpi-boot/config.txt"
+
+    install -Dm644 "${srcdir}/99-rpi-boot.hook" "${pkgdir}/usr/share/libalpm/hooks/99-rpi-boot.hook"
+    install -Dm755 "${srcdir}/rpi3-boot-update" "${pkgdir}/usr/bin/rpi3-boot-update"
+}

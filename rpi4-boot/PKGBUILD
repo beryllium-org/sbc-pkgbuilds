@@ -1,0 +1,24 @@
+# Maintainer: Bill Sideris <bill88t@feline.gr>
+
+pkgname=rpi4-boot
+pkgver=20$(date +%y%m%d)
+pkgrel=8
+pkgdesc="Raspberry Pi 4 / 400 bootloader and configuration"
+arch=('any')
+url="https://beryllium.gr"
+license=('GPL')
+conflicts=('rpi3-boot' 'rpi5-boot')
+
+source=('config.txt' 'u-boot.bin' '99-rpi-boot.hook' 'rpi4-boot-update')
+sha256sums=('cf61e2cc30086aea9510ba00a4805b836c91515c00edbf3ef7b26a4a20fa013b'
+            '712fb432159f6041ec60c0b59c05a867467325a4f58c8eddfc8159b91fd8125c'
+            'daffaed6bef4b7c3ac2af51d81310112d866b18b632b4f8db46cdb7995269226'
+            '5cae74712247b933ad0db104e9cda70b882e069e2ac945694c91eac8e6bec948')
+
+package() {
+    install -Dm644 "${srcdir}/u-boot.bin" "${pkgdir}/etc/rpi-boot/u-boot.bin"
+    install -Dm644 "${srcdir}/config.txt" "${pkgdir}/etc/rpi-boot/config.txt"
+
+    install -Dm644 "${srcdir}/99-rpi-boot.hook" "${pkgdir}/usr/share/libalpm/hooks/99-rpi-boot.hook"
+    install -Dm755 "${srcdir}/rpi4-boot-update" "${pkgdir}/usr/bin/rpi4-boot-update"
+}

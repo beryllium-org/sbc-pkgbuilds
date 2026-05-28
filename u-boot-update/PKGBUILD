@@ -1,0 +1,28 @@
+# Maintainer: Bill Sideris <bill88t@feline.gr>
+
+pkgname=u-boot-update
+pkgver=0.1.2
+pkgrel=3
+pkgdesc="U-Boot configuration update tool for Beryllium OS"
+arch=('any')
+url='https://github.com/beryllium-org/sbc-pkgbuilds'
+license=('GPL')
+depends=('bash' 'util-linux' 'jq')
+optdepends=('cryptsetup: for LUKS encrypted root support')
+source=("u-boot-update"
+        "read-config"
+        "91-u-boot-update.hook")
+md5sums=('75bc89e1e9d31ba5b2f1310c11ec45b5'
+         '7fd9fa2f2b8eeac87980f914088a55da'
+         '5f19f0873cdae7a5c9ce13cde355f652')
+
+package() {
+    mkdir -p "${pkgdir}/etc/default"
+    mkdir -p "${pkgdir}/etc/u-boot-menu/conf.d"
+    mkdir -p "${pkgdir}/usr/share/u-boot-menu/conf.d"
+
+    install -Dm755 "${srcdir}/u-boot-update" "${pkgdir}/usr/bin/u-boot-update"
+    install -Dm755 "${srcdir}/read-config" "${pkgdir}/usr/share/u-boot-menu/read-config"
+
+    install -Dm644 "${srcdir}/91-u-boot-update.hook" "${pkgdir}/usr/share/libalpm/hooks/91-u-boot-update.hook"
+}

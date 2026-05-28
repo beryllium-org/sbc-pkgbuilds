@@ -1,0 +1,24 @@
+# Maintainer: Bill Sideris <bill88t@feline.gr>
+
+pkgname=rpi5-boot
+pkgver=20$(date +%y%m%d)
+pkgrel=7
+pkgdesc="Raspberry Pi 5 / 500 bootloader and configuration"
+arch=('any')
+url="https://beryllium.gr"
+license=('GPL')
+conflicts=('rpi3-boot' 'rpi4-boot')
+
+source=('config.txt' 'u-boot.bin' '99-rpi-boot.hook' 'rpi5-boot-update')
+sha256sums=('06fa4cf6713232b901f8e52a53e5f9594af2b2d3fa7f73eaddd0862afc989c21'
+            '305b2c8d86a221189301c556a014b6bcbbfbfcaadc5c198c0e294196918617e7'
+            '0aa427046c18c31c1fac3651f75d7793a43b44e44fc1d75d5cd5a27398e8a163'
+            'daa79ce0568edbbe38cb6998ac582bb5e9a0167408f3ba2e89cebbe4b4cf7e0c')
+
+package() {
+    install -Dm644 "${srcdir}/u-boot.bin" "${pkgdir}/etc/rpi-boot/u-boot.bin"
+    install -Dm644 "${srcdir}/config.txt" "${pkgdir}/etc/rpi-boot/config.txt"
+
+    install -Dm644 "${srcdir}/99-rpi-boot.hook" "${pkgdir}/usr/share/libalpm/hooks/99-rpi-boot.hook"
+    install -Dm755 "${srcdir}/rpi5-boot-update" "${pkgdir}/usr/bin/rpi5-boot-update"
+}

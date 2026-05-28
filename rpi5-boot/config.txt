@@ -1,0 +1,16 @@
+arm_64bit=1
+kernel=u-boot.bin
+
+enable_uart=1
+
+disable_overscan=1
+disable_splash=1
+
+[pi5]
+dtoverlay=vc4-kms-v3d
+dtparam=audio=on
+gpu_mem=128
+arm_boost=1
+
+[cm5]
+dtoverlay=dwc2,dr_mode=host

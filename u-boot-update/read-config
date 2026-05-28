@@ -1,0 +1,77 @@
+#!/bin/sh
+
+has_separate_boot() {
+    [ "$(stat --printf %d /)" != "$(stat --printf %d /boot)" ]
+}
+
+# Reading the default file
+if [ -e /etc/default/u-boot ]
+then
+	. /etc/default/u-boot
+fi
+
+# Reading config file fragments if they exist
+for file in /usr/share/u-boot-menu/conf.d/*.conf /etc/u-boot-menu/conf.d/*.conf
+do
+	if [ -e "${file}" ]
+	then
+		. "${file}"
+	fi
+done
+
+# Reading the os-release file
+if [ -e /etc/os-release ]
+then
+	. /etc/os-release
+elif [ -e /usr/lib/os-release ]
+then
+	. /usr/lib/os-release
+fi
+
+
+U_BOOT_UPDATE="${U_BOOT_UPDATE:-true}"
+U_BOOT_SYNC_DTBS="${U_BOOT_SYNC_DTBS:-false}"
+U_BOOT_IS_SETUP="${U_BOOT_IS_SETUP:-false}"
+
+if [ "${U_BOOT_UPDATE}" != "true" ]
+then
+	echo "P: u-boot-update is disabled in /etc/default/u-boot."
+	exit 0
+fi
+
+if [ "${U_BOOT_IS_SETUP}" != "true" ]
+then
+	echo "E: U-Boot setup is not confirmed. Please set U_BOOT_IS_SETUP=true in /etc/default/u-boot."
+	echo "E: This ensures the script is only run on correctly set up systems."
+	exit 1
+fi
+
+# Find boot directory as seen in u-boot, and path prefix while in linux
+if has_separate_boot
+then
+	# / and /boot are on different filesystems
+	_BOOT_DIRECTORY=""
+	_BOOT_PATH="/boot"
+    U_BOOT_COPY_DTB_TO_BOOT="true"
+else
+	# / and /boot are on the same filesystem
+	_BOOT_DIRECTORY="/boot"
+	_BOOT_PATH=""
+    U_BOOT_COPY_DTB_TO_BOOT="false"
+fi
+
+# Setting defaults if /etc/default/u-boot is missing
+
+U_BOOT_ALTERNATIVES="${U_BOOT_ALTERNATIVES:-default recovery}"
+U_BOOT_DEFAULT="${U_BOOT_DEFAULT:-l0}"
+U_BOOT_PROMPT="${U_BOOT_PROMPT:-1}"
+U_BOOT_ENTRIES="${U_BOOT_ENTRIES:-all}"
+U_BOOT_TIMEOUT="${U_BOOT_TIMEOUT:-10}"
+U_BOOT_MENU_LABEL="${U_BOOT_MENU_LABEL:-${PRETTY_NAME:-Beryllium}}"
+U_BOOT_FDT="${U_BOOT_FDT:-}"
+U_BOOT_FDT_OVERLAYS="${U_BOOT_FDT_OVERLAYS:-}"
+U_BOOT_FDT_FILE="${U_BOOT_FDT_FILE:-}"
+U_BOOT_COPY_DTB_TO_BOOT="${U_BOOT_COPY_DTB_TO_BOOT:-false}"
+
+# Default parameters if not specified
+U_BOOT_PARAMETERS="${U_BOOT_PARAMETERS:-splash quiet rw}"
