@@ -1,0 +1,151 @@
+# Maintainer: Your Name <you@example.org>
+#
+# Based on: https://www.reddit.com/r/AsahiLinux/comments/1tk6zoe/steam_native_arm_aarch64_on_asahi_linux_fedora/
+#
+# This package mirrors how the official Arch Linux "steam" package works:
+# only a small, static bootstrapper is installed system-wide under /usr.
+# The actual (large, frequently-updated) Steam client is downloaded and
+# installed by the bootstrapper into the user's own home directory
+# (~/.local/share/Steam) on first launch, so Steam can self-update there
+# without needing write access to anything under /usr.
+#
+# Proton 11 is NOT installed by this package. Install it per-user with:
+#   download-proton11 <URL-to-proton11.tar.gz>
+
+pkgname=steam-arm64-installer
+pkgver=1.0
+pkgrel=1
+pkgdesc="Native Steam bootstrapper for aarch64 (ARM64); downloads the actual client into the user's home directory on first run"
+arch=('aarch64')
+url="https://store.steampowered.com/"
+license=('custom')
+depends=('gtk2' 'libvdpau' 'sdl2_mixer' 'sdl2-compat' 'openal' 'lsof' 'curl' 'unzip' 'grep' 'libvpx' 'box64')
+makedepends=('curl' 'graphicsmagick')
+options=('!strip')
+install=steam-arm64.install
+source=()
+sha256sums=()
+
+build() {
+  cd "$srcdir"
+
+  echo "Downloading icon assets..."
+  curl -L -o steam.svg https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg
+  curl -L -o steam.png https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Steam_icon_logo.svg/960px-Steam_icon_logo.svg.png
+}
+
+package() {
+  cd "$srcdir"
+
+  ### Bootstrapper script: /usr/bin/steam-arm64 ###
+  # This is the only executable that actually touches the Steam client.
+  # It runs as the normal user, downloads the client into
+  # ~/.local/share/Steam on first launch, and simply execs steam on every
+  # subsequent launch. All self-updates happen inside the user's home dir.
+  install -dm755 "${pkgdir}/usr/bin"
+  cat > "${pkgdir}/usr/bin/steam-arm64" <<'WRAPEOF'
+#!/bin/bash
+set -eo pipefail
+
+export STEAMROOT="$HOME/.local/share/Steam"
+
+if [[ ! -d "$STEAMROOT/steamrtarm64" ]]; then
+  echo "First run: downloading and installing the Steam aarch64 client into ${STEAMROOT} ..."
+
+  LATEST_ZIPFILE=$(curl -s https://client-update.steamstatic.com/steam_client_publicbeta_linuxarm64 \
+    | grep -E '"file"\s+"bins_linuxarm64_linuxarm64.zip' | cut -d '"' -f4)
+
+  if [[ -z "$LATEST_ZIPFILE" ]]; then
+    echo "Could not determine the latest Steam aarch64 client download." >&2
+    exit 1
+  fi
+
+  TMPZIP=$(mktemp --suffix=.zip)
+  trap 'rm -f "$TMPZIP"' EXIT
+
+  echo "Downloading ${LATEST_ZIPFILE} ..."
+  curl -L -o "$TMPZIP" "https://client-update.steamstatic.com/${LATEST_ZIPFILE}"
+
+  mkdir -p "$STEAMROOT"
+  unzip -o -qq "$TMPZIP" -d "$STEAMROOT"
+
+  # Enable public beta
+  mkdir -p "$STEAMROOT/package"
+  echo publicbeta > "$STEAMROOT/package/beta"
+
+  chmod -R u+rwx "$STEAMROOT/steamrtarm64"
+  ln -sfn "$STEAMROOT/steamrtarm64" "$STEAMROOT/steamrt64"
+  touch "$STEAMROOT/.steam-enable-steamrt64-client"
+
+  for f in steamwebhelper steamwebhelper.sh gldriverquery vulkandriverquery steamsysinfo steam; do
+    chmod +x "$STEAMROOT/steamrtarm64/${f}"
+  done
+fi
+
+mkdir -p "$HOME/.steam"
+ln -sfn "$STEAMROOT" "$HOME/.steam/steam"
+ln -sfn "$STEAMROOT" "$HOME/.steam/root"
+
+exec "$STEAMROOT/steamrtarm64/steam" -noverifyfiles "$@"
+WRAPEOF
+  chmod +x "${pkgdir}/usr/bin/steam-arm64"
+
+  ### Proton 11 installer script: /usr/bin/download-proton11 ###
+  cat > "${pkgdir}/usr/bin/download-proton11" <<'PROTONEOF'
+#!/bin/bash
+set -eo pipefail
+
+STEAMROOT="${STEAMROOT:-$HOME/.local/share/Steam}"
+
+usage() {
+  echo "Usage: $(basename "$0") <URL-to-proton11.tar.gz>"
+  echo "Example: $(basename "$0") http://example.org/proton11.tar.gz"
+  exit 1
+}
+
+[[ $# -eq 1 ]] || usage
+URL="$1"
+
+if [[ ! -d "$STEAMROOT" ]]; then
+  echo "No Steam directory found at ${STEAMROOT}. Please launch steam-arm64 at least once first." >&2
+  exit 1
+fi
+
+TMPFILE=$(mktemp --suffix=.tar.gz)
+trap 'rm -f "$TMPFILE"' EXIT
+
+echo "Downloading Proton 11 from ${URL} ..."
+curl -L -o "$TMPFILE" "$URL"
+
+echo "Installing Proton 11 into ${STEAMROOT}/compatibilitytools.d/"
+mkdir -p "${STEAMROOT}/compatibilitytools.d/"
+tar -xzf "$TMPFILE" -C "${STEAMROOT}/compatibilitytools.d/"
+
+mkdir -p "$HOME/.steam"
+if [[ -d "${STEAMROOT}/linuxarm64" ]]; then
+  ln -sfn "${STEAMROOT}/linuxarm64" "$HOME/.steam/sdkarm64"
+fi
+
+echo "Proton 11 installed successfully. Please restart Steam."
+PROTONEOF
+  chmod +x "${pkgdir}/usr/bin/download-proton11"
+
+  ### Icons ###
+  for size in 32x32 48x48 64x64 96x96 128x128 512x512; do
+    install -dm755 "${pkgdir}/usr/share/icons/hicolor/${size}/apps"
+    gm convert steam.png -resize ${size} "${pkgdir}/usr/share/icons/hicolor/${size}/apps/steam.png"
+  done
+  install -Dm644 steam.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/steam.svg"
+
+  ### Desktop entry ###
+  install -dm755 "${pkgdir}/usr/share/applications"
+  cat > "${pkgdir}/usr/share/applications/steam-arm64.desktop" <<'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=Steam (arm64)
+Exec=/usr/bin/steam-arm64 %U
+Icon=steam
+Terminal=false
+Categories=Game;
+DESKTOPEOF
+}
