@@ -1,8 +1,8 @@
 # Maintainer: Bill Sideris <bill88t@feline.gr>
 
 pkgname=u-boot-update
-pkgver=0.1.2
-pkgrel=3
+pkgver=0.1.3
+pkgrel=1
 pkgdesc="U-Boot configuration update tool for Beryllium OS"
 arch=('any')
 url='https://github.com/beryllium-org/sbc-pkgbuilds'
@@ -12,7 +12,7 @@ optdepends=('cryptsetup: for LUKS encrypted root support')
 source=("u-boot-update"
         "read-config"
         "91-u-boot-update.hook")
-md5sums=('75bc89e1e9d31ba5b2f1310c11ec45b5'
+md5sums=('4124722b8c7e7b736cfa9a954975da53'
          '7fd9fa2f2b8eeac87980f914088a55da'
          '5f19f0873cdae7a5c9ce13cde355f652')
 

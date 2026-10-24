@@ -54,6 +54,13 @@ then
     exit 1
 fi
 
+# Restore .pacsave config if the live config is missing
+if [ -e "/etc/default/u-boot.pacsave" ] && [ ! -e "/etc/default/u-boot" ]
+then
+    echo "P: Restoring /etc/default/u-boot from .pacsave..."
+    mv -f "/etc/default/u-boot.pacsave" "/etc/default/u-boot"
+fi
+
 # Redirect stdout to stderr due Debconf usage
 exec 1>&2
 
