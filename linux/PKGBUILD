@@ -1,11 +1,11 @@
 # Maintainer: Bill Sideris <bill88t@feline.gr>
 
 pkgbase=linux
-_srcname=7.1-rc1
+_srcname=7.3
 _kernelname=${pkgbase#linux}
 _desc="AArch64 multi-platform"
-pkgver=7.1rc1
-pkgrel=2
+pkgver=7.3
+pkgrel=1
 arch=('aarch64')
 url="http://www.kernel.org/"
 license=('GPL2')
@@ -19,7 +19,7 @@ source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=${_srcn
 md5sums=('SKIP'
          'd182953cf7a797517f50a5cfd3718cbd'
          'c9d4e392555b77034e24e9f87c5ff0b3'
-         'e264574a09c7af0a4f291cdee0954794'
+         'e4df7606d6b451c379068c8f65e72959'
          '33ba82001fca579d43172a6db25d6aca')
 
 prepare() {
