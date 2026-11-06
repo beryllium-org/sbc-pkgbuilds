@@ -1,0 +1,100 @@
+# Maintainer: Bill Sideris <bill88t@feline.gr>
+#
+# Native (aarch64) Steam bootstrapper for Beryllium OS.
+#
+# Mirrors the official Arch 'steam' package model: only a small bootstrapper is
+# installed system-wide under /usr. The actual (large, frequently-updated)
+# Steam client is downloaded by the bootstrapper into ~/.local/share/Steam on
+# first launch and self-updates there without write access to /usr.
+#
+# Target is ARMv9 only - no 32-bit anything. The client is fully aarch64;
+# x86/x86_64 game content runs inside Proton (FEX), never against host 32-bit
+# libraries. Valve's own ARM64 Protons (Proton Experimental ARM64, Proton 11.0
+# ARM64) plus Steam Linux Runtime 4.0 (arm64) are fetched by the client itself;
+# GE-Proton (aarch64, bundles FEX) can be installed per-user if wanted.
+#
+# References:
+#   https://www.reddit.com/r/AsahiLinux/comments/1tk6zoe/steam_native_arm_aarch64_on_asahi_linux_fedora/
+#   https://github.com/UbuntuAsahi/steam-arm64
+#   https://github.com/NoDiskNoFun/sbc-pkgbuilds-be (steam-installer)
+
+pkgname=steam
+pkgver=20261105
+pkgrel=1
+pkgdesc="Native Steam client bootstrapper for aarch64; downloads the client into the user's home directory on first run"
+arch=('aarch64')
+url="https://store.steampowered.com/"
+license=('custom')
+depends=(
+  'bash'
+  'curl'
+  'unzip'
+  # Core client runtime deps - verified against readelf -d of the linuxarm64
+  # client seed (everything else is bundled, RUNPATH=$ORIGIN).
+  'gtk2'            # libgtk-x11-2.0: steamui.so, vgui2_s.so
+  'glib2'           # libglib/libgobject/libgio: steamui.so, steamwebhelper
+  'ibus'            # libibus-1.0.so.5: steamwebhelper (crash-loops without it)
+  'sdl3'            # libSDL3.so.0: steamui.so, steamwebhelper, streaming_client
+  'sdl3_ttf'        # libSDL3_ttf.so.0: streaming_client, steamui.so
+  'sdl3_image'      # libSDL3_image.so.0: streaming_client
+  'sdl2-compat'     # libSDL2-2.0.so.0: gldriverquery
+  'openal'          # steamclient.so, libaudio.so, libmiles.so, vgui2_s.so
+  'lsof'            # REQUIRED: GetIPCConnectionDetails - client rejects webhelper's UI socket without it
+  'libpulse'        # steamclient.so, steamui.so (pulls libasyncns/libsndfile)
+  'pipewire'        # libpipewire-0.3: steamclient.so, steamui.so
+  'networkmanager'  # libnm.so.0: steamclient.so (core - not optional)
+  'dbus'            # libdbus-1: steamclient.so, steamwebhelper
+  'systemd-libs'    # libsystemd, libudev: steamclient.so
+  'libdrm'
+  'libglvnd'        # libGL
+  'libx11' 'libxext' 'libxi' 'libxrender' 'libxtst' 'libxrandr'
+  'libxcomposite' 'libxdamage' 'libxinerama' 'libxfixes'
+  'libice' 'libsm'
+  'fontconfig'
+  'freetype2'
+  'noto-fonts'      # client UI needs some fonts present
+  'hicolor-icon-theme'
+  'libappindicator-gtk2'  # tray icon: steamui.so dlopens libappindicator.so.1 (GTK2 soname, NO fallback)
+  # FEX rootfs bring-up for x86/x86_64 Linux games:
+  'python3'          # Valve's fex-compat-tool is a python3 script
+  'squashfs-tools'   # unsquashfs: extract the official FEX rootfs
+  'xxhash'           # xxhsum -H2: verify the rootfs against FEX's official hash
+)
+
+optdepends=(
+  'gamescope: nested compositor / fullscreen session'
+  'libvdpau: video decode acceleration'
+)
+
+options=('!strip')
+source=('steam-arm64' 'steam-reset-fex' 'steam-set-gpu' 'steam.svg')
+sha256sums=('625207caffd630ec294a08535f0c9c37107d783127a9b16c68a10a1fd93874f2'
+            '89a91d0711914fe360f917fbc9075182330a2e043282255c541005eef0539c33'
+            '0e4d83d316a14546596df5d7b91dafc6cc93e2ef722d429d3455689533344327'
+            'f9dfd02f603715cb12a8b0530e0c4dec21ecf4104c053bf62dd8139f19ea47af')
+
+package() {
+  install -Dm755 steam-arm64 "${pkgdir}/usr/bin/steam"
+  install -Dm755 steam-reset-fex "${pkgdir}/usr/bin/steam-reset-fex"
+  install -Dm755 steam-set-gpu "${pkgdir}/usr/bin/steam-set-gpu"
+
+  ### Icons ###
+  # Only the scalable SVG: no build-time network fetches, no image tooling.
+  install -Dm644 steam.svg \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/steam.svg"
+
+  ### Desktop entry ###
+  install -Dm644 /dev/null "${pkgdir}/usr/share/applications/steam.desktop"
+  cat > "${pkgdir}/usr/share/applications/steam.desktop" <<'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=Steam
+Comment=Native arm64 Steam client
+Exec=/usr/bin/steam %U
+Icon=steam
+Terminal=false
+Categories=Game;
+MimeType=x-scheme-handler/steam;
+StartupWMClass=steam;
+DESKTOPEOF
+}

@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# steam-reset-fex - drop the FEX x86 rootfs fetched by the steam bootstrapper
+# so the next steam launch re-downloads and re-extracts the current official
+# build from FEX-Emu (https://rootfs.fex-emu.gg). Use this if games fail with
+# "RootFS path doesn't exist" after a FEX/rootfs change, or to pull a newer
+# rootfs build on demand.
+#
+# Refuses to run while FEX is in use - swapping the rootfs out from under a
+# running game corrupts that session.
+
+set -eo pipefail
+
+ROOTFS_DIR="${HOME}/.local/share/fex-emu/RootFS"
+
+if pgrep -x FEXServer >/dev/null 2>&1 || pgrep -x FEXBash >/dev/null 2>&1; then
+  echo "FEX is in use (FEXServer/FEXBash running) - close Steam and any games first." >&2
+  exit 1
+fi
+
+rm -rf -- "${ROOTFS_DIR}/ArchLinux" \
+          "${ROOTFS_DIR}/ArchLinux.sqsh" \
+          "${ROOTFS_DIR}/ArchLinux.sqsh.part"
+
+echo "FEX rootfs cleared; launching steam to fetch the current official rootfs..."
+exec /usr/bin/steam "$@"

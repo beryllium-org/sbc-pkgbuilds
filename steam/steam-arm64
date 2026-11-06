@@ -1,0 +1,261 @@
+#!/bin/bash
+#
+# steam-arm64 bootstrapper for Beryllium OS (Arch-based, aarch64).
+#
+# Only a small bootstrapper lives under /usr; the actual Steam arm64 client is
+# downloaded by Valve into ~/.local/share/Steam on first launch and
+# self-updates there. Both stable (steam_client_linuxarm64) and publicbeta
+# (steam_client_publicbeta_linuxarm64) manifests are live.
+#
+# The client itself fetches Steam Linux Runtime 4.0 (arm64, app 4185400) and
+# Valve's ARM64 Protons (Proton Experimental ARM64 / Proton 11.0 ARM64) on its
+# own once the user is signed in - no bootstrap dance needed here. For Windows
+# games, pick one of those, or install GE-Proton (aarch64, bundles FEX)
+# manually into compatibilitytools.d.
+#
+# Based on:
+#   https://www.reddit.com/r/AsahiLinux/comments/1tk6zoe/steam_native_arm_aarch64_on_asahi_linux_fedora/
+#   https://github.com/UbuntuAsahi/steam-arm64
+#   https://github.com/NoDiskNoFun/sbc-pkgbuilds-be (steam-installer)
+#
+# Channel is stable by default. Export STEAM_CHANNEL=beta for the public beta
+# (the switch is applied on every launch, not just first run).
+
+set -eo pipefail
+
+STEAMROOT="${STEAMROOT:-$HOME/.local/share/Steam}"
+CLIENT="${STEAMROOT}/steamrtarm64"
+CHANNEL="${STEAM_CHANNEL:-stable}"
+
+manifest_url() {
+  if [ "${CHANNEL}" = "beta" ]; then
+    echo "https://client-update.steamstatic.com/steam_client_publicbeta_linuxarm64"
+  else
+    echo "https://client-update.steamstatic.com/steam_client_linuxarm64"
+  fi
+}
+
+first_run_client() {
+  local MANIFEST BODY FILE_LINE LATEST_ZIPFILE SHA2 TMPZIP
+  MANIFEST=$(manifest_url)
+
+  echo "First run: installing the native Steam aarch64 client into ${STEAMROOT} ..."
+
+  # -a: stay safe if Valve flips this manifest to binary VDF (other channels
+  # are binary; this one is text today). Everything wrapped in if/|| true so
+  # a failed fetch or parse reaches the friendly error instead of set -e.
+  if ! BODY=$(curl -fsSL --retry 5 --retry-all-errors "${MANIFEST}"); then
+    echo "Could not fetch the client manifest: ${MANIFEST}" >&2
+    exit 1
+  fi
+  FILE_LINE=$(printf '%s\n' "${BODY}" \
+    | grep -a '"file"[[:space:]]*"bins_linuxarm64_linuxarm64\.zip' | head -1 || true)
+  LATEST_ZIPFILE=$(printf '%s\n' "${FILE_LINE}" | cut -d '"' -f4)
+  # Integrity: the manifest ships the zip's sha256 next to the file entry.
+  SHA2=$(printf '%s\n' "${BODY}" | grep -aA5 -F "${FILE_LINE}" \
+    | grep -aoP '"sha2"[[:space:]]*"\K[0-9a-f]{64}' | head -1 || true)
+
+  if [ -z "${LATEST_ZIPFILE}" ]; then
+    echo "Could not determine the latest Steam aarch64 client download." >&2
+    exit 1
+  fi
+
+  TMPZIP=$(mktemp --suffix=.zip)
+  trap 'rm -f "${TMPZIP}"' EXIT
+
+  echo "Downloading ${LATEST_ZIPFILE} ..."
+  # The Steam CDN intermittently drops connections mid-stream and 502/503s on
+  # the big zip - retry aggressively and allow resume.
+  if ! curl -fL --retry 5 --retry-all-errors -C - \
+       -o "${TMPZIP}" "https://client-update.steamstatic.com/${LATEST_ZIPFILE}"; then
+    echo "Client download failed." >&2
+    exit 1
+  fi
+  if [ -n "${SHA2}" ] && ! printf '%s  %s\n' "${SHA2}" "${TMPZIP}" \
+       | sha256sum --check --status; then
+    echo "Downloaded client zip failed its sha256 check; not extracting." >&2
+    exit 1
+  fi
+
+  mkdir -p "${STEAMROOT}"
+  unzip -o -qq "${TMPZIP}" -d "${STEAMROOT}"
+  trap - EXIT
+  rm -f "${TMPZIP}"
+
+  # Valve zips the unversioned libs symlinks with backslash separators; unzip
+  # extracts those as literal junk names instead of steamrtarm64/libs/*.so.
+  rm -rf -- "${STEAMROOT}/steamrtarm64\\libs" "${STEAMROOT}/steamrtarm64\\swiftshader"
+  rm -f -- "${STEAMROOT}/steamrtarm64\\libs\\"*
+  # Recreate the intended symlinks (targets are soname-versioned and can
+  # change between client builds, so only link to what actually exists).
+  if [ -e "${CLIENT}/libs/libcurl.so.4.8.0" ]; then
+    ln -sfn libcurl.so.4.8.0 "${CLIENT}/libs/libcurl.so"
+  fi
+  if [ -e "${CLIENT}/libs/libnghttp2.so.14.20.1" ]; then
+    ln -sfn libnghttp2.so.14.20.1 "${CLIENT}/libs/libnghttp2.so"
+    ln -sfn libnghttp2.so.14.20.1 "${CLIENT}/libs/libnghttp2.so.14"
+  fi
+
+  chmod -R u+rwx "${CLIENT}"
+
+  # The client expects its runtime under steamrt64; the arm64 build ships as steamrtarm64.
+  ln -sfn "${CLIENT}" "${STEAMROOT}/steamrt64"
+  touch "${STEAMROOT}/.steam-enable-steamrt64-client"
+}
+
+# Applied on EVERY launch so switching STEAM_CHANNEL after the first run works.
+set_channel() {
+  mkdir -p "${STEAMROOT}/package"
+  if [ "${CHANNEL}" = "beta" ]; then
+    echo publicbeta > "${STEAMROOT}/package/beta"
+  else
+    rm -f "${STEAMROOT}/package/beta"
+  fi
+}
+
+first_run_links() {
+  mkdir -p "${HOME}/.steam"
+  ln -sfn "${STEAMROOT}" "${HOME}/.steam/steam"
+  ln -sfn "${STEAMROOT}" "${HOME}/.steam/root"
+  # linuxarm64/ only appears once the client self-updates; a dangling link
+  # here is harmless and becomes valid on a later launch.
+  ln -sfn "${STEAMROOT}/linuxarm64" "${HOME}/.steam/sdkarm64"
+}
+
+# Valve ships FEX as a client depot (steamapps/common/FEX-Emu) whose per-game
+# config generator bakes the Steam Frame guest-OS rootfs path
+# (/usr/share/guestos/fex-mesa) and provides no rootfs downloader at all -
+# without one, x86/x86_64 Linux games cannot start on aarch64. Fetch the
+# official FEX-Emu rootfs into FEX's own standard location
+# (~/.local/share/fex-emu/RootFS - upstream FEXRootFSFetcher would install to
+# the same place) and hand it to Steam via env only. Nothing under /usr, no
+# per-game config edits, survives client updates. Runs on every launch;
+# no-ops once the rootfs exists.
+FEX_ROOTFS_DIR="${HOME}/.local/share/fex-emu/RootFS"
+FEX_ROOTFS_NAME="ArchLinux"
+
+ensure_fex_rootfs() {
+  local ROOTFS_DIR="${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}"
+  [ -d "${ROOTFS_DIR}" ] && return 0
+  mkdir -p "${FEX_ROOTFS_DIR}"
+
+  local SQSH="${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}.sqsh"
+  local URL WANT_HASH
+
+  # Resolve the current Arch entry from FEX's official list (small JSON).
+  local LIST
+  LIST=$(mktemp --suffix=.json)
+  if ! curl -fsSL --retry 5 --retry-all-errors -o "${LIST}" \
+       "https://rootfs.fex-emu.gg/RootFS_links.json"; then
+    echo "Warning: could not fetch the FEX RootFS list; x86/x86_64 Linux games will not run." >&2
+    rm -f "${LIST}"
+    return 1
+  fi
+  read -r URL WANT_HASH < <(python3 - "${LIST}" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["v1"]
+for v in d.values():
+    if v.get("DistroMatch") == "arch" and v.get("Type") == "squashfs":
+        print(v["URL"], v["Hash"])
+        break
+PY
+) || true
+  rm -f "${LIST}"
+  if [ -z "${URL}" ]; then
+    echo "Warning: no Arch rootfs in the FEX RootFS list; x86/x86_64 Linux games will not run." >&2
+    return 1
+  fi
+
+  if [ ! -s "${SQSH}" ]; then
+    echo "Downloading the FEX x86 rootfs (~1.4GB, one-off) ..."
+    if ! curl -fL --retry 5 --retry-all-errors -C - \
+         -o "${SQSH}.part" "${URL}"; then
+      echo "Warning: FEX rootfs download failed; x86/x86_64 Linux games will not run." >&2
+      rm -f "${SQSH}.part"
+      return 1
+    fi
+    mv "${SQSH}.part" "${SQSH}"
+  fi
+
+  # Integrity: the official list publishes FEX's hash = XXH3_64 (seed 0) =
+  # the LOW 64 bits of XXH128; xxhsum -H2 prints both halves.
+  local GOT_HASH
+  GOT_HASH=$(xxhsum -H2 "${SQSH}" | cut -d' ' -f1 | cut -c17-32)
+  if [ "${GOT_HASH}" != "${WANT_HASH}" ]; then
+    echo "Warning: FEX rootfs hash mismatch (got ${GOT_HASH:-none}, want ${WANT_HASH}); discarding - will re-download next launch." >&2
+    rm -f "${SQSH}"
+    return 1
+  fi
+
+  echo "Extracting the FEX rootfs (a few GB, one-off) ..."
+  if ! unsquashfs -q -f -d "${ROOTFS_DIR}" "${SQSH}" >/dev/null; then
+    echo "Warning: FEX rootfs extraction failed; x86/x86_64 Linux games will not run." >&2
+    return 1
+  fi
+  rm -f "${SQSH}"
+}
+
+if [ ! -d "${CLIENT}" ]; then
+  first_run_client
+  set_channel
+  first_run_links
+
+  # Fresh-install bootstrap: the client needs several of its own runs before
+  # the UI can load, and each pass prints a benign 'dlmopen steamui.so
+  # failed' until the update lands:
+  #   pass 1: downloads the update depots, then exits on dlmopen
+  #           (the bundled libs - Valve's own patched ffmpeg etc. - only
+  #           exist AFTER the update is applied)
+  #   pass 2: 'Found pending update' -> applies the update (this is the run
+  #           that makes the client self-contained)
+  #   pass 3: normal client, login window.
+  # package/<manifest>.installed is written once bootstrap is complete; loop
+  # on it (capped) so a single `steam` command goes end to end. Host or
+  # compat libraries must NOT be added to LD_LIBRARY_PATH to paper over
+  # pass 1: they shadow Valve's bundled libs on every later run.
+  BOOTSTRAP_MANIFEST=steam_client_linuxarm64
+  [ "${CHANNEL}" = "beta" ] && BOOTSTRAP_MANIFEST=steam_client_publicbeta_linuxarm64
+  _tries=0
+  while [ ! -e "${STEAMROOT}/package/${BOOTSTRAP_MANIFEST}.installed" ] && [ "${_tries}" -lt 3 ]; do
+    _tries=$((_tries + 1))
+    echo "Bootstrap pass ${_tries}: the client downloads/applies its update and exits; continuing..."
+    "${CLIENT}/steam" -noverifyfiles "$@" || true
+  done
+else
+  set_channel
+  first_run_links
+fi
+
+ensure_fex_rootfs
+
+if [ -d "${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}" ]; then
+  # Transparent rootfs plumbing: Valve's per-game fex-compat-tool regenerates
+  # every game's Config.json on each launch from STEAM_COMPAT_GRAPHICS_PROVIDER
+  # (its code treats the provider's dir as the FEX rootfs; the official
+  # rootfs ships a valid graphics_provider.json). FEX_ROOTFS is the direct
+  # FEX-level override on top. Both are plain user env - no /usr writes,
+  # no per-game edits, no root, survives client updates.
+  export STEAM_COMPAT_GRAPHICS_PROVIDER="${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}/graphics_provider.json"
+  export FEX_ROOTFS="${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}"
+fi
+
+# Optional GPU override (see steam-set-gpu): picks the GPU for the client and
+# every game on hybrid systems (e.g. onboard Mali + AMD dGPU). Standard mesa
+# env knobs, so they reach Vulkan (radv/panvk/DXVK/VKD3D via the ICDs) and GL
+# alike, including inside FEX and Proton. Empty/absent file = automatic.
+GPU_CONF="${STEAMROOT}/gpu.conf"
+if [ -f "${GPU_CONF}" ]; then
+  # shellcheck disable=SC1090
+  . "${GPU_CONF}"
+  [ -n "${MESA_VK_DEVICE_SELECT:-}" ] && export MESA_VK_DEVICE_SELECT
+  [ -n "${DRI_PRIME:-}" ] && export DRI_PRIME
+fi
+
+# The updated client bundles everything it needs that once had to come from
+# the host (its own patched ffmpeg, libvpx.so.6, libavif, SDL3 family,
+# libh264bitstream...). LD_LIBRARY_PATH outranks the client's RUNPATH=$ORIGIN,
+# so NOTHING may be prepended here - a host or compat lib with the same
+# soname would shadow Valve's own and hard-fail on versioned symbols.
+# Only the client dir itself goes first, so client-bundled libs beat host ones.
+export LD_LIBRARY_PATH="${CLIENT}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+exec "${CLIENT}/steam" -noverifyfiles "$@"
