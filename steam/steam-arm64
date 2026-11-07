@@ -239,6 +239,14 @@ if [ -d "${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}" ]; then
   export FEX_ROOTFS="${FEX_ROOTFS_DIR}/${FEX_ROOTFS_NAME}"
 fi
 
+# Enable DXVK-Sarek inside any Proton that understands the knob (Proton-CachyOS,
+# Dawn Winery dwproton; Valve's own Protons ignore unknown PROTON_* vars). The
+# stock DXVK bundled with upstream Protons hard-requires Vulkan features Mali
+# lacks (fillModeNonSolid first - DXVK: "No adapters found") and dies before
+# the game starts; Sarek makes those optional, so D3D games actually get the
+# Mali-G720 (panvk) instead of failing adapter creation. Pre-set value wins.
+export PROTON_DXVK_SAREK="${PROTON_DXVK_SAREK:-1}"
+
 # Optional GPU override (see steam-set-gpu): picks the GPU for the client and
 # every game on hybrid systems (e.g. onboard Mali + AMD dGPU). Standard mesa
 # env knobs, so they reach Vulkan (radv/panvk/DXVK/VKD3D via the ICDs) and GL

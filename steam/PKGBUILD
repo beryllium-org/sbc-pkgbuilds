@@ -19,7 +19,7 @@
 #   https://github.com/NoDiskNoFun/sbc-pkgbuilds-be (steam-installer)
 
 pkgname=steam
-pkgver=20261105
+pkgver=20261107
 pkgrel=1
 pkgdesc="Native Steam client bootstrapper for aarch64; downloads the client into the user's home directory on first run"
 arch=('aarch64')
@@ -64,11 +64,12 @@ depends=(
 optdepends=(
   'gamescope: nested compositor / fullscreen session'
   'libvdpau: video decode acceleration'
+  'protonplus: install community Proton builds; HIGHLY RECOMMENDED FOR MALI GRAPHICS'
 )
 
 options=('!strip')
 source=('steam-arm64' 'steam-reset-fex' 'steam-set-gpu' 'steam.svg')
-sha256sums=('625207caffd630ec294a08535f0c9c37107d783127a9b16c68a10a1fd93874f2'
+sha256sums=('395a788fb71f2a781183b0861ba251660d9eee8643d909269823d307da34ebd2'
             '89a91d0711914fe360f917fbc9075182330a2e043282255c541005eef0539c33'
             '0e4d83d316a14546596df5d7b91dafc6cc93e2ef722d429d3455689533344327'
             'f9dfd02f603715cb12a8b0530e0c4dec21ecf4104c053bf62dd8139f19ea47af')
