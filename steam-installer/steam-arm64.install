@@ -1,0 +1,17 @@
+post_install() {
+  if [ ! -e /usr/lib/libvpx.so.6 ] && [ -e /usr/lib/libvpx.so ]; then
+    echo "Creating compatibility symlink /usr/lib/libvpx.so.6 -> libvpx.so"
+    ln -s /usr/lib/libvpx.so /usr/lib/libvpx.so.6
+  fi
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  if [ -L /usr/lib/libvpx.so.6 ] && [ "$(readlink /usr/lib/libvpx.so.6)" = "/usr/lib/libvpx.so.9" ]; then
+    echo "Removing compatibility symlink /usr/lib/libvpx.so.6"
+    rm -f /usr/lib/libvpx.so.6
+  fi
+}
