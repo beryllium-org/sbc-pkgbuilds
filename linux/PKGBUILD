@@ -5,7 +5,7 @@ _srcname=7.3
 _kernelname=${pkgbase#linux}
 _desc="AArch64 multi-platform"
 pkgver=7.3
-pkgrel=9
+pkgrel=10
 arch=('aarch64')
 url="http://www.kernel.org/"
 license=('GPL2')
@@ -19,7 +19,7 @@ source=("git+https://github.com/beryllium-org/linux-beryllium.git#branch=${_srcn
 md5sums=('SKIP'
          'd182953cf7a797517f50a5cfd3718cbd'
          'c9d4e392555b77034e24e9f87c5ff0b3'
-         '7b7a231fffd72b1f56e5177842be8aa7'
+         '4983bb121ea124543f374ba71eb0bfbb'
          '33ba82001fca579d43172a6db25d6aca')
 
 prepare() {
